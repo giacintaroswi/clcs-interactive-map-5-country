@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Peta Interaktif Pengajuan Landas Kontinen</title>
+
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  />
+
+  <style>
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; }
+    body {
+      font-family: Arial, Helvetica, sans-serif;
+      color: #183247;
+      background: #f3f6f8;
+    }
+    .app {
+      display: grid;
+      grid-template-rows: auto 1fr;
+      height: 100%;
+      min-height: 480px;
+    }
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 14px 20px;
+      background: #123b5a;
+      color: white;
+      box-shadow: 0 2px 8px #0002;
+      z-index: 500;
+    }
+    header h1 { font-size: 19px; margin: 0 0 5px; }
+    header p { font-size: 12px; margin: 0; color: #d7e6f0; }
+    .header-tag {
+      border: 1px solid #7898ad;
+      border-radius: 20px;
+      padding: 7px 10px;
+      white-space: nowrap;
+      font-size: 12px;
+    }
+    .main {
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      min-height: 0;
+    }
+    aside {
+      padding: 16px;
+      overflow-y: auto;
+      background: white;
+      border-right: 1px solid #dce5eb;
+    }
+    aside h2 { font-size: 14px; margin: 0 0 12px; }
+    .intro {
+      font-size: 12px;
+      line-height: 1.5;
+      color: #607687;
+      margin-bottom: 15px;
+    }
+    .country-list { display: grid; gap: 8px; }
+    .country-button {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      text-align: left;
+      padding: 10px;
+      background: #fff;
+      border: 1px solid #e1e8ed;
+      border-radius: 8px;
+      color: #183247;
+      cursor: pointer;
+      font-size: 13px;
+    }
+    .country-button:hover, .country-button.active {
+      border-color: #327ca8;
+      background: #eef7fc;
+    }
+    .swatch {
+      width: 13px;
+      height: 13px;
+      border-radius: 4px;
+      flex: 0 0 13px;
+      border: 1px solid #0002;
+    }
+    .country-name { flex: 1; font-weight: 600; }
+    .country-status { font-size: 10px; color: #607687; }
+    .all-button {
+      width: 100%;
+      margin-top: 12px;
+      padding: 10px;
+      border: 0;
+      border-radius: 8px;
+      color: white;
+      background: #17658c;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .all-button:hover { background: #104e70; }
+    .note {
+      margin-top: 18px;
+      padding-top: 13px;
+      border-top: 1px solid #e1e8ed;
+      color: #738796;
+      font-size: 11px;
+      line-height: 1.5;
+    }
+    #map { width: 100%; height: 100%; min-height: 0; background: #e8f0f4; }
+    .leaflet-popup-content { line-height: 1.55; min-width: 180px; }
+    .popup-title { font-size: 15px; font-weight: 700; margin-bottom: 6px; }
+    .popup-label { color: #627b8b; }
+    .error {
+      display: none;
+      position: absolute;
+      z-index: 1000;
+      top: 86px;
+      left: 50%;
+      transform: translateX(-50%);
+      max-width: min(90%, 620px);
+      padding: 12px 16px;
+      border: 1px solid #e8b4ad;
+      border-radius: 8px;
+      background: #fff1ef;
+      color: #8c2e24;
+      box-shadow: 0 4px 16px #0002;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+    @media (max-width: 700px) {
+      header { padding: 12px; }
+      header h1 { font-size: 16px; }
+      .header-tag { display: none; }
+      .main { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+      aside { padding: 10px; border-right: 0; border-bottom: 1px solid #dce5eb; }
+      aside h2, .intro, .note { display: none; }
+      .country-list { display: flex; overflow-x: auto; gap: 7px; }
+      .country-button { width: auto; min-width: max-content; padding: 8px 10px; }
+      .all-button { width: auto; margin-top: 8px; padding: 8px 12px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <div>
+        <h1>Peta Interaktif Pengajuan Landas Kontinen</h1>
+        <p>Visualisasi wilayah lima negara dari data GeoJSON</p>
+      </div>
+      <div class="header-tag">5 negara · Peta interaktif</div>
+    </header>
+
+    <div class="main">
+      <aside>
+        <h2>Daftar negara</h2>
+        <div class="intro">
+          Pilih nama negara untuk memperbesar wilayahnya. Klik poligon pada peta
+          untuk melihat atribut yang tersedia di file GeoJSON.
+        </div>
+        <div id="country-list" class="country-list"></div>
+        <button id="show-all" class="all-button" type="button">Tampilkan semua negara</button>
+        <div class="note">
+          Sumber data: file <b>lk.geojson</b> yang disediakan pengguna.
+          Tampilan dan informasi mengikuti atribut yang tersimpan dalam file.
+        </div>
+      </aside>
+      <div id="map" aria-label="Peta interaktif negara"></div>
+    </div>
+  </div>
+
+  <div id="error" class="error"></div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    const map = L.map("map", { worldCopyJump: true }).setView([10, 25], 2);
+
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 18,
+      attribution: "&copy; OpenStreetMap contributors"
+    }).addTo(map);
+
+    const palette = {
+      "Pakistan": "#e76f51",
+      "Philippines": "#2a9d8f",
+      "Vietnam": "#e9c46a",
+      "Kenya": "#457b9d",
+      "Nigeria": "#8e6cba"
+    };
+
+    let geoLayer = null;
+    let allBounds = null;
+    const countryLayers = new Map();
+    const listElement = document.getElementById("country-list");
+    const errorElement = document.getElementById("error");
+
+    function escapeHtml(value) {
+      return String(value ?? "—").replace(/[&<>"']/g, function (char) {
+        return {
+          "&": "&amp;", "<": "&lt;", ">": "&gt;",
+          '"': "&quot;", "'": "&#39;"
+        }[char];
+      });
+    }
+
+    function countryStyle(feature) {
+      const name = feature.properties?.negara || "Negara";
+      return {
+        color: "#ffffff",
+        weight: 1.5,
+        opacity: 1,
+        fillColor: palette[name] || "#6c8da1",
+        fillOpacity: 0.62
+      };
+    }
+
+    function makePopup(properties) {
+      const name = properties.negara || "Informasi wilayah";
+      const rows = Object.entries(properties)
+        .filter(([key]) => key !== "negara" && key !== "fid")
+        .map(([key, value]) =>
+          `<div><span class="popup-label">${escapeHtml(key)}:</span> ${escapeHtml(value ?? "—")}</div>`
+        ).join("");
+
+      return `<div class="popup-title">${escapeHtml(name)}</div>${rows}`;
+    }
+
+    function zoomToCountry(name) {
+      const layer = countryLayers.get(name);
+      if (layer && layer.getBounds && layer.getBounds().isValid()) {
+        map.fitBounds(layer.getBounds(), { padding: [25, 25], maxZoom: 7 });
+        document.querySelectorAll(".country-button").forEach(button => {
+          button.classList.toggle("active", button.dataset.country === name);
+        });
+      }
+    }
+
+    function addCountryButton(name, feature) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "country-button";
+      button.dataset.country = name;
+
+      const swatch = document.createElement("span");
+      swatch.className = "swatch";
+      swatch.style.backgroundColor = palette[name] || "#6c8da1";
+
+      const countryName = document.createElement("span");
+      countryName.className = "country-name";
+      countryName.textContent = name;
+
+      const status = document.createElement("span");
+      status.className = "country-status";
+      status.textContent = feature.properties?.status || "";
+
+      button.append(swatch, countryName, status);
+      button.addEventListener("click", () => zoomToCountry(name));
+      listElement.appendChild(button);
+    }
+
+    fetch("lk.geojson")
+      .then(response => {
+        if (!response.ok) throw new Error("File lk.geojson tidak ditemukan.");
+        return response.json();
+      })
+      .then(data => {
+        if (!data.features || !data.features.length) {
+          throw new Error("File GeoJSON tidak memiliki fitur yang dapat ditampilkan.");
+        }
+
+        geoLayer = L.geoJSON(data, {
+          style: countryStyle,
+          onEachFeature: function (feature, layer) {
+            const properties = feature.properties || {};
+            const name = properties.negara || "Negara tanpa nama";
+
+            layer.bindPopup(makePopup(properties));
+
+            layer.on({
+              mouseover: function (event) {
+                event.target.setStyle({ weight: 3, color: "#183247", fillOpacity: 0.82 });
+                if (!L.Browser.ie && !L.Browser.opera && !L.Browser.edge) {
+                  event.target.bringToFront();
+                }
+              },
+              mouseout: function (event) {
+                geoLayer.resetStyle(event.target);
+              },
+              click: function () {
+                document.querySelectorAll(".country-button").forEach(button => {
+                  button.classList.toggle("active", button.dataset.country === name);
+                });
+              }
+            });
+
+            if (!countryLayers.has(name)) countryLayers.set(name, layer);
+            else {
+              // Jika satu negara terdiri dari beberapa fitur, simpan semua bagiannya.
+              const existing = countryLayers.get(name);
+              if (existing instanceof L.FeatureGroup) existing.addLayer(layer);
+              else countryLayers.set(name, L.featureGroup([existing, layer]));
+            }
+          }
+        }).addTo(map);
+
+        allBounds = geoLayer.getBounds();
+        if (allBounds.isValid()) map.fitBounds(allBounds, { padding: [25, 25] });
+
+        const byCountry = new Map();
+        data.features.forEach(feature => {
+          const name = feature.properties?.negara || "Negara tanpa nama";
+          if (!byCountry.has(name)) byCountry.set(name, feature);
+        });
+
+        Array.from(byCountry.entries())
+          .sort(([a], [b]) => a.localeCompare(b))
+          .forEach(([name, feature]) => addCountryButton(name, feature));
+
+        document.getElementById("show-all").addEventListener("click", () => {
+          if (allBounds && allBounds.isValid()) map.fitBounds(allBounds, { padding: [25, 25] });
+          document.querySelectorAll(".country-button").forEach(button => button.classList.remove("active"));
+        });
+      })
+      .catch(error => {
+        errorElement.style.display = "block";
+        errorElement.textContent =
+          error.message + " Pastikan index.html dan lk.geojson berada di folder yang sama, lalu buka melalui server lokal atau hosting web.";
+      });
+  </script>
+</body>
+</html>
